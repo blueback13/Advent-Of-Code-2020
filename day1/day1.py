@@ -2,6 +2,8 @@
 
 import argparse
 
+################################################################################
+
 def get_result_2(numbers, target=2020):
     """
     Find the two values in 'numbers' that sum to 2020 and return the result of
@@ -26,6 +28,8 @@ def get_result_2(numbers, target=2020):
             # This means that the larger number is now too big.
             large -= 1
 
+
+################################################################################
 
 def get_result_3(numbers, target=2020):
     """
@@ -61,6 +65,7 @@ def get_result_3(numbers, target=2020):
             small = 0
             middle = small + 1
 
+################################################################################
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

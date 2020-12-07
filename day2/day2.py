@@ -3,6 +3,8 @@
 import argparse
 import types
 
+################################################################################
+
 def read_passwords(filename):
     """
     Open a file 'filename' and read the lines into a list.
@@ -31,6 +33,8 @@ def read_passwords(filename):
 
     return passwords
 
+################################################################################
+
 def valid_passwords_v1(filename):
     """
     Return the number of valid passwords in 'filename'
@@ -48,6 +52,8 @@ def valid_passwords_v1(filename):
             valid += 1
 
     return valid
+
+################################################################################
 
 def valid_passwords_v2(filename):
     """
@@ -71,6 +77,7 @@ def valid_passwords_v2(filename):
 
     return valid
 
+################################################################################
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
