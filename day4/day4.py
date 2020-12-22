@@ -2,6 +2,7 @@
 
 import argparse
 import copy
+import math
 
 ################################################################################
 
@@ -43,6 +44,49 @@ class passport:
             self.hair_colour,
             self.eye_colour,
             self.passport_id,
+            # self.country_id,
+        }
+
+    def is_valid_v2(self):
+        """
+        Return true only if all values are within the valid range.
+
+        birth_year - between 1920 and 2002 (inclusive)
+        issue_year - between 2010 and 2020 (inclusive)
+        expiration_year - between 2020 and 2030 (inclusive)
+        height - A number (H) followed by either 'cm' or 'in'
+                 If cm then H must be between 150 and 193 (inclusive)
+                 If in then H must be between 59 and 76 (inclusive)
+        hair_colour - A '#' followed by six characters (0-9, a-f are acceptable)
+        eye_colour - One of 'amb', 'blu', 'brn', 'gry', 'grn', 'hzl', 'oth'.
+        passport_id - A 9-digit number (leading zeros are counted)
+        """
+        height_type = self.height[-2:]
+        height_val = int(self.height[:-2])
+        if height_type == "cm":
+            height = (150 <= height_val <= 193)
+        if height_type == "in":
+            height = (59 <= height_val <= 76)
+        else:
+            height = False
+
+        allowed = set('0123456789abcdef')
+
+        return not False in {
+            (1920 <= int(self.birth_year) <= 2002),
+            (2010 <= int(self.issue_year) <= 2020),
+            (2020 <= int(self.expiration_year) <= 2030),
+            # Height
+            height,
+            # Hair Color
+            ((self.hair_colour[0] == '#') and
+            (set(self.hair_colour).issubset(allowed))),
+            # Eye Color
+            (self.eye_colour in
+             ["amb", "blu", "brn", "gry", "grn", "hzl", "oth"]
+            ),
+            # Passport ID
+            (len(self.passport_id) == 9 and self.passport_id.isdigit()),
             # self.country_id,
         }
 
@@ -136,6 +180,21 @@ def count_valid(passports):
 
 ################################################################################
 
+
+def count_valid_v2(passports):
+    """Count the number of passports that are valid, version 2."""
+    count = 0
+    for passport in passports:
+        if passport.is_valid_v2():
+            count += 1
+        else:
+            print ("Not valid? {}".format(passport))
+
+    return count
+
+
+################################################################################
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Find the number of trees that will be hit."
@@ -147,4 +206,6 @@ if __name__ == "__main__":
 
     passports = read_passports(opts.filename)
 
-    print("There are {} valid passports.".format(count_valid(passports)))
+    print("V1: There are {} valid passports.".format(count_valid(passports)))
+
+    print("V2: There are {} valid passports.".format(count_valid_v2(passports)))
