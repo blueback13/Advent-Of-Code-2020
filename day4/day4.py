@@ -61,34 +61,40 @@ class passport:
         eye_colour - One of 'amb', 'blu', 'brn', 'gry', 'grn', 'hzl', 'oth'.
         passport_id - A 9-digit number (leading zeros are counted)
         """
-        height_type = self.height[-2:]
-        height_val = int(self.height[:-2])
-        if height_type == "cm":
-            height = (150 <= height_val <= 193)
-        if height_type == "in":
-            height = (59 <= height_val <= 76)
+
+        # Check for missing fields (other than country_id).
+        if not self.is_valid():
+            return False
+
+        # Height
+        if self.height.endswith("cm"):
+            height = (150 <= int(self.height[:-2]) <= 193)
+        elif self.height.endswith("in"):
+            height = (59 <= int(self.height[:-2]) <= 76)
         else:
             height = False
-
+        # DOB
+        birth = (1920 <= int(self.birth_year) <= 2002)
+        # issue year
+        issue = (2010 <= int(self.issue_year) <= 2020)
+        # expiration year
+        expire = (2020 <= int(self.expiration_year) <= 2030)
+        # Hair Color
         allowed = set('0123456789abcdef')
+        hair = ((self.hair_colour[0] == '#') and
+                (set(self.hair_colour[1:]).issubset(allowed)))
+        # Eye Color
+        eye = (self.eye_colour in
+               ["amb", "blu", "brn", "gry", "grn", "hzl", "oth"]
+        )
+        # Passport ID
+        passport = (len(self.passport_id) == 9 and self.passport_id.isdigit())
 
-        return not False in {
-            (1920 <= int(self.birth_year) <= 2002),
-            (2010 <= int(self.issue_year) <= 2020),
-            (2020 <= int(self.expiration_year) <= 2030),
-            # Height
-            height,
-            # Hair Color
-            ((self.hair_colour[0] == '#') and
-            (set(self.hair_colour).issubset(allowed))),
-            # Eye Color
-            (self.eye_colour in
-             ["amb", "blu", "brn", "gry", "grn", "hzl", "oth"]
-            ),
-            # Passport ID
-            (len(self.passport_id) == 9 and self.passport_id.isdigit()),
-            # self.country_id,
-        }
+        #print(f"is_valid_v2(): height = {height}, birth = {birth}, "
+        #      + f"issue = {issue}, hair = {hair}, eye = {eye}, "
+        #      + f"passport = {passport}")
+
+        return not False in {birth, issue, expire, height, hair, eye, passport}
 
     def parse_pair(self, pair):
         """Read a key:value pair into the current state."""
@@ -172,8 +178,8 @@ def count_valid(passports):
     for passport in passports:
         if passport.is_valid():
             count += 1
-        else:
-            print ("Not valid? {}".format(passport))
+        #else:
+        #    print ("Not valid? {}".format(passport))
 
     return count
 
@@ -185,10 +191,11 @@ def count_valid_v2(passports):
     """Count the number of passports that are valid, version 2."""
     count = 0
     for passport in passports:
+        #print ("checking {}".format(passport))
         if passport.is_valid_v2():
             count += 1
-        else:
-            print ("Not valid? {}".format(passport))
+        #else:
+        #    print ("Not valid? {}".format(passport))
 
     return count
 
