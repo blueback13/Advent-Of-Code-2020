@@ -4,6 +4,17 @@ import argparse
 
 ################################################################################
 
+# Copied from
+# https://stackoverflow.com/questions/5764782/iterate-through-pairs-of-items-in-a-python-list
+def pairs(seq):
+    i = iter(seq)
+    prev = next(i)
+    for item in i:
+        yield prev, item
+        prev = item
+
+################################################################################
+
 def bsearch(string, upper='B', lower='F', range_max=128):
     """Return the result of a binary search on the input string."""
 
@@ -65,3 +76,12 @@ if __name__ == "__main__":
 
     # Get the highest value seat in the list.
     print (f"The highest value seat is {seats[-1]}")
+
+    ##### Part 2 #####
+
+    # Find a seats that are missing from the list.
+    for p, n in pairs(seats):
+        #print (f"p = {p}, n = {n}")
+        if (n - p) != 1:
+            missing = p + 1
+            print(f"Looks like {missing} is missing (p = {p}, n = {n})")
