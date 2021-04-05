@@ -21,7 +21,7 @@ class Bag:
 
     def __init__(self, colour, contains=None, contained=None):
         self.colour    = colour
-        self.contains  = [] if contains is None else contains
+        self.contains  = {} if contains is None else contains
         self.contained = [] if contained is None else contained
 
     def __repr__(self):
@@ -73,10 +73,14 @@ class baglist:
 
         main, inner = baginfo.split("contain", 1)
 
-        contains = inner.split(',')
-
         main = get_colour(main.strip())
-        contains = [(get_colour(c.strip())).split(" ", 1)[1] for c in contains]
+
+        contains = {}
+
+        if inner.strip() != "no other bags":
+            for c in inner.split(','):
+                pair = (get_colour(c.strip())).split(" ", 1)
+                contains[pair[1]] = int(pair[0])
 
         #print (f"main='{main}', inner='{inner}', contains='{contains}'")
 
@@ -113,6 +117,19 @@ class baglist:
         #print (f"Containing: {ret}")
         return len(ret)
 
+    def total_contains(self, colour):
+        """Given a bag 'colour', return the number of bags it must contain."""
+
+        target = self._bags.get(colour)
+        if target is None:
+            return 0
+
+        total = 0
+        for bag, num in target.contains.items():
+            total += num + (num * self.total_contains(bag))
+
+        return total
+
     def __repr__(self):
         return (f"{self.__class__.__name__}{{_bags='{self._bags}'}}")
 
@@ -135,8 +152,13 @@ if __name__ == "__main__":
     main_baglist.read_file(opts.filename)
 
     #print (main_baglist)
-    target_part1 = "shiny gold"
-    total_part1  = main_baglist.total_contained(target_part1)
+    target = "shiny gold"
+    total_part1  = main_baglist.total_contained(target)
     print (
-        f"There are {total_part1} bags that can contain {target_part1} bags."
+        f"There are {total_part1} bags that can contain {target} bags."
+    )
+
+    total_part2 = main_baglist.total_contains(target)
+    print (
+        f"{target} bags are required to contain {total_part2} bags."
     )
