@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from queue import Queue
 
 ################################################################################
 
@@ -9,7 +10,7 @@ def get_colour(bag):
 
 ################################################################################
 
-class bag:
+class Bag:
     """
     This class contains the data for a bag.
 
@@ -41,9 +42,16 @@ class baglist:
         self._bags = {}
 
     def add_bag(self, colour, contains=None):
+        """
+        Add a Bag 'colour' to the list of all bags.
+
+        Note that if the bag already exists in the list of bags then the list of
+        bags it can contain will be updated in place instead.
+        """
+
         newbag = self._bags.get(colour)
         if newbag is None:
-            self._bags[colour] = bag(colour, contains=contains)
+            self._bags[colour] = Bag(colour, contains=contains)
         else:
             newbag.contains = contains
 
@@ -51,7 +59,7 @@ class baglist:
             somebag = self._bags.get(b)
             if somebag is None:
                 #print (f"{colour}: adding {b}")
-                self._bags[b] = bag(b, contained=[colour])
+                self._bags[b] = Bag(b, contained=[colour])
             else:
                 #print (f"{colour}: {b}")
                 somebag.contained.append(colour)
@@ -79,6 +87,32 @@ class baglist:
             for line in f:
                 self.parse_bag(line)
 
+    def total_contained(self, colour):
+        """
+        For a bag 'colour', return the total number of bags that can contain it.
+        """
+
+        target = self._bags.get(colour)
+        if target is None:
+            return 0
+
+        ret = target.contained
+        queue = Queue()
+        [queue.put(bag) for bag in ret]
+
+        while queue.empty() is not True:
+            # Getting an item removes it from the queue
+            current = self._bags.get(queue.get())
+            if current is None:
+                continue
+            for bag in current.contained:
+                if bag not in ret:
+                    ret.append(bag)
+                    queue.put(bag)
+
+        #print (f"Containing: {ret}")
+        return len(ret)
+
     def __repr__(self):
         return (f"{self.__class__.__name__}{{_bags='{self._bags}'}}")
 
@@ -100,4 +134,9 @@ if __name__ == "__main__":
     main_baglist = baglist()
     main_baglist.read_file(opts.filename)
 
-    print (main_baglist)
+    #print (main_baglist)
+    target_part1 = "shiny gold"
+    total_part1  = main_baglist.total_contained(target_part1)
+    print (
+        f"There are {total_part1} bags that can contain {target_part1} bags."
+    )
