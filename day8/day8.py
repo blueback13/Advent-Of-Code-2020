@@ -5,8 +5,9 @@ Script to solve day 8 of the 2020 Advent of Code.
 https://adventofcode.com/2020/day/8
 """
 
-import re
+import functools
 import logging
+import re
 from typing import Tuple
 
 ################################################################################
@@ -40,7 +41,15 @@ class Context:
         log.info(
             f"Jumping {'forward' if num >=0 else 'backward'} {num} commands."
         )
+        if num < 0 and abs(num) > self._instruction:
+            raise RuntimeError(
+                f"Cannot jump back more than {self._instruction} commands!"
+            )
         self._instruction += num
+
+    ########################################
+
+    next_cmd = functools.partialmethod(jump, 1)
 
     ########################################
 
@@ -201,6 +210,7 @@ class Program:
         self._file = filename
         self._program = []  # To store already processed commands.
         self._parser = parse_program(self._file)
+        self._len = None
 
     ########################################
 
@@ -227,3 +237,43 @@ class Program:
             raise TypeError("Item is invalid", item)
 
         return self._program[item]
+
+    ########################################
+
+    def __len__(self):
+        if self._len is None:
+            self._len = sum(
+                1 for line in open(self._file) if line.strip() != ""
+            )
+        return self._len
+
+################################################################################
+
+def operate(program: Program) -> int:
+    """
+    Run a program.
+
+    Keeps track of operations that have been performed; errors if an operation
+    is performed twice
+
+    Returns the value of the accumulator.
+    """
+    ctx = Context()
+    visited = set()
+
+    log.info("Running program...")
+
+    while ctx.instruction not in visited and len(program) > ctx.instruction:
+        current = ctx.instruction
+        visited.add(current)
+        cmd = program[ctx.instruction]
+        cmd.handle_cmd(ctx)
+        if ctx.instruction == current:
+            ctx.next_cmd()
+
+    if ctx.instruction in visited:
+        raise RuntimeError(
+            f"Cycle detected! (Accumulator value {ctx.value})", ctx, visited
+        )
+
+    return ctx.value
