@@ -12,7 +12,46 @@ import logging
 
 log = logging.getLogger(__name__)
 
-COMMAND_RE = r"^(?P<cmd>[a-zA-Z]{3}) (?P<op>[-+])(?P<num>\d*)$"
+COMMAND_RE = r"^(?P<cmd>[a-zA-Z]{3}) (?P<num>[-+]\d*)$"
+
+################################################################################
+
+class Context:
+    """Class representing a programs current state."""
+
+    def __init__(self):
+        # Set the accumulator and 'instruction pointer'.
+        self._accumulator = 0
+        self._instruction = 0
+
+    ########################################
+
+    def accumulate(self, num: int):
+        """Accumulate"""
+        log.info(
+            f"{'Increasing' if num >=0 else 'Decreasing'} accumulator by {num}."
+        )
+        self._accumulator += num
+
+    ########################################
+
+    def jump(self, num: int):
+        log.info(
+            f"Jumping {'forward' if num >=0 else 'backward'} {num} commands."
+        )
+        self._instruction += num
+
+    ########################################
+
+    @property
+    def value(self):
+        return self._accumulator
+
+    ########################################
+
+    @property
+    def instruction(self):
+        return self._instruction
 
 ################################################################################
 
@@ -23,14 +62,13 @@ class Command:
 
     ########################################
 
-    def __init__(self, name: str, op: str, num: int):
+    def __init__(self, name: str, num: int):
         self.name = name
-        self.op = op
         self.num = num
 
     ########################################
 
-    def handle_cmd(self, ctx):
+    def handle_cmd(self, ctx: Context):
         log.warning(f"Command {self.name} handled by base class (noop).")
         pass
 
@@ -71,7 +109,7 @@ class nopCommand(Command):
 
     ########################################
 
-    def handle_cmd(self, ctx):
+    def handle_cmd(self, ctx: Context):
         log.info(f"Command {self.name} is a null operation.")
 
     ########################################
@@ -94,8 +132,9 @@ class jmpCommand(Command):
 
     ########################################
 
-    def handle_cmd(self, ctx):
+    def handle_cmd(self, ctx: Context):
         log.info(f"Command {self.name} is a jump operation.")
+        ctx.jump(self.num)
 
     ########################################
 
@@ -117,8 +156,9 @@ class accCommand(Command):
 
     ########################################
 
-    def handle_cmd(self, ctx):
+    def handle_cmd(self, ctx: Context):
         log.info(f"Command {self.name} is a acc operation.")
+        ctx.accumulate(self.num)
 
     ########################################
 
@@ -136,3 +176,7 @@ class accCommand(Command):
 Command.register_command(nopCommand)
 Command.register_command(jmpCommand)
 Command.register_command(accCommand)
+
+################################################################################
+
+
