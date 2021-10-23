@@ -7,6 +7,7 @@ https://adventofcode.com/2020/day/8
 
 import re
 import logging
+from typing import Tuple
 
 ################################################################################
 
@@ -179,4 +180,50 @@ Command.register_command(accCommand)
 
 ################################################################################
 
+def parse_program(filename: str) -> Tuple[str, int]:
+    """Parses a program from a file."""
+    regex = re.compile(COMMAND_RE)
+    with open(filename, "r") as fh:
+        for line in fh.readlines():
+            line = line.strip()
+            log.debug(f"Got a program line '{line}'")
+            match = regex.match(line)
+            if not bool(match):
+                raise RuntimeError("Line '{line}' is formatted incorrectly.")
+            yield match.group("cmd"), int(match.group("num"))
 
+################################################################################
+
+class Program:
+    """Represent a program as a list of commands."""
+
+    def __init__(self, filename: str):
+        self._file = filename
+        self._program = []  # To store already processed commands.
+        self._parser = parse_program(self._file)
+
+    ########################################
+
+    def _gen_commands(self, target: int):
+        """Generate commands until at least 'target' have been retrieved."""
+        log.info(
+            f"Ensuring {target} commands are processed (currently "
+            f"{len(self._program)} have been processed)"
+        )
+        for _ in range(max(0, target - len(self._program))):
+            name, num = next(self._parser)
+            log.debug(f"Generating command for {name}")
+            self._program.append(Command(name, num))
+
+    ########################################
+
+    def __getitem__(self, item):
+        """Get elements of the program."""
+        if type(item) is int:
+            self._gen_commands(item + 1)
+        elif type(item) is slice:
+            self._gen_commands(max(abs(item.start), abs(item.stop)))
+        else:
+            raise TypeError("Item is invalid", item)
+
+        return self._program[item]
