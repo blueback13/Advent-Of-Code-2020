@@ -8,7 +8,7 @@ https://adventofcode.com/2020/day/8
 import functools
 import logging
 import re
-from typing import Tuple
+from typing import Tuple, Dict, Union
 
 ################################################################################
 
@@ -25,6 +25,14 @@ class Context:
         # Set the accumulator and 'instruction pointer'.
         self._accumulator = 0
         self._instruction = 0
+
+    ########################################
+
+    def __repr__(self):
+        return (
+            f"<{self.__class__.__name__}(accumulator={self.value}, "
+            f"instruction={self.instruction})>"
+        )
 
     ########################################
 
@@ -75,6 +83,11 @@ class Command:
     def __init__(self, name: str, num: int):
         self.name = name
         self.num = num
+
+    ########################################
+
+    def __repr__(self):
+        return f"<{self.__class__.__name__}(name={self.name!r}, num={self.num})>"
 
     ########################################
 
@@ -216,6 +229,14 @@ class Program:
 
     ########################################
 
+    def __repr__(self):
+        return (
+            f"<{self.__class__.__name__}(file={self._file!r},"
+            f" length={len(self)})>"
+        )
+
+    ########################################
+
     def _gen_commands(self, target: int):
         """Generate commands until at least 'target' have been retrieved."""
         log.info(
@@ -248,6 +269,56 @@ class Program:
                 1 for line in open(self._file) if line.strip() != ""
             )
         return self._len
+
+################################################################################
+
+class OverrideProgram(Program):
+    """A program class that allows instructions to be overriden."""
+
+    def __init__(self, file_or_program: Union[str, Program]):
+        """file_or_program: either a filename or an existing program object"""
+        self._overrides = {}
+
+        if isinstance(file_or_program, Program):
+            self._real_program = file_or_program
+        else:
+            self._real_program = Program(file_or_program)
+
+        self._file = self._real_program._file
+
+    ########################################
+
+    def __len__(self):
+        return len(self._real_program)
+
+    ########################################
+
+    def __getitem__(self, item):
+        """Get elements of the program."""
+        override = self._overrides.get(item)
+        if override is not None:
+            log.info(f"Comand at {item} overriden!")
+            return override
+
+        return self._real_program[item]
+
+    ########################################
+
+    def override(self, instruction: int, command: Command):
+        """
+        Override a command.
+
+        Parameters:
+        instruction: Positional instruction to override.
+        command    : Command to use instead.
+        """
+        self._overrides[instruction] = command
+
+    ########################################
+
+    def clear_override(self, instruction: int):
+        """Clear an overriden command"""
+        del self._overrides[instruction]
 
 ################################################################################
 
@@ -284,6 +355,8 @@ def cycle_detector(program: Program) -> int:
     Run a program to detect cycles within it.
 
     Uses Floyd's tortoise and hare algorithm.
+
+    Note: detects the cycle, but at the command that is corrupted.
     """
     tortoise = Context()
     hare = Context()
