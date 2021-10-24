@@ -80,7 +80,7 @@ class Command:
 
     def handle_cmd(self, ctx: Context):
         log.warning(f"Command {self.name} handled by base class (noop).")
-        pass
+        ctx.next_cmd()
 
     ########################################
 
@@ -121,6 +121,7 @@ class nopCommand(Command):
 
     def handle_cmd(self, ctx: Context):
         log.info(f"Command {self.name} is a null operation.")
+        ctx.next_cmd()
 
     ########################################
 
@@ -167,8 +168,9 @@ class accCommand(Command):
     ########################################
 
     def handle_cmd(self, ctx: Context):
-        log.info(f"Command {self.name} is a acc operation.")
+        log.info(f"Command {self.name} is an acc operation.")
         ctx.accumulate(self.num)
+        ctx.next_cmd()
 
     ########################################
 
@@ -264,12 +266,9 @@ def operate(program: Program) -> int:
     log.info("Running program...")
 
     while ctx.instruction not in visited and len(program) > ctx.instruction:
-        current = ctx.instruction
-        visited.add(current)
+        visited.add(ctx.instruction)
         cmd = program[ctx.instruction]
         cmd.handle_cmd(ctx)
-        if ctx.instruction == current:
-            ctx.next_cmd()
 
     if ctx.instruction in visited:
         raise RuntimeError(
