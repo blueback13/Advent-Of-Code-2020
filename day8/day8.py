@@ -320,6 +320,18 @@ class OverrideProgram(Program):
         """Clear an overriden command"""
         del self._overrides[instruction]
 
+    ########################################
+
+    def clear_overrides(self):
+        """Clear all overriden commands"""
+        self._overrides.clear()
+
+    ########################################
+
+    @property
+    def total_overrides(self):
+        return len(self._overrides)
+
 ################################################################################
 
 def operate(program: Program) -> int:
@@ -332,12 +344,12 @@ def operate(program: Program) -> int:
     Returns the value of the accumulator.
     """
     ctx = Context()
-    visited = set()
+    visited = []
 
     log.info("Running program...")
 
     while ctx.instruction not in visited and len(program) > ctx.instruction:
-        visited.add(ctx.instruction)
+        visited.append(ctx.instruction)
         cmd = program[ctx.instruction]
         cmd.handle_cmd(ctx)
 
@@ -395,4 +407,46 @@ def cycle_detector(program: Program) -> int:
     )
     return hare.instruction
 
+################################################################################
 
+def operate_repair(program: Program) -> int:
+    """Operate on a program; attempting to repair any cycles."""
+
+    result = None
+    oprogram = OverrideProgram(program)
+
+    visited = None
+    backcommand = -1  # Reverse indice of the next failed command to try
+
+    while result is None:
+        log.info("Running program")
+        try:
+            return operate(oprogram)
+        except RuntimeError as err:
+            if visited is None:
+                visited = err.args[2]
+
+            oprogram.clear_overrides()
+
+            while oprogram.total_overrides == 0:
+                command = oprogram[visited[backcommand]]
+
+                if isinstance(command, jmpCommand):
+                    log.info(
+                        f"Replacing command {visited[backcommand]} with a nop"
+                        " command."
+                    )
+                    oprogram.override(
+                        visited[backcommand], Command('nop', command.num)
+                    )
+                elif isinstance(command, nopCommand):
+                    log.info(
+                        f"Replacing command {visited[backcommand]} with a jmp"
+                        " command."
+                    )
+                    oprogram.override(
+                        visited[backcommand], Command('jmp', command.num)
+                    )
+
+                # Reduce the index so we get teh correct command next time.
+                backcommand -= 1
