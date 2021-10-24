@@ -276,3 +276,50 @@ def operate(program: Program) -> int:
         )
 
     return ctx.value
+
+################################################################################
+
+def cycle_detector(program: Program) -> int:
+    """
+    Run a program to detect cycles within it.
+
+    Uses Floyd's tortoise and hare algorithm.
+    """
+    tortoise = Context()
+    hare = Context()
+
+    condition = False
+
+    while not condition:
+        # Advance the tortoise once
+        log.info(f"Advancing tortoise (instruction {tortoise.instruction})")
+        program[tortoise.instruction].handle_cmd(tortoise)
+
+        # Advance the hare twice
+        log.info(f"Advancing hare (instruction {hare.instruction})")
+        program[hare.instruction].handle_cmd(hare)
+        if not hare.instruction >= len(program):
+            log.info(f"Advancing hare again (instruction {hare.instruction})")
+            program[hare.instruction].handle_cmd(hare)
+        else:
+            log.warning(
+                f"Hare terminated (instruction {hare.instruction} out of"
+                f" {len(program)}"
+            )
+            return hare.instruction
+
+        condition = tortoise.instruction == hare.instruction
+
+        if not condition and hare.instruction >= len(program):
+            log.warning(
+                f"Hare terminated (instruction {hare.instruction} out of"
+                f" {len(program)}"
+            )
+            return hare.instruction
+
+    log.info(
+        f"Hare and Tortoise caught each other at instruction {hare.instruction}"
+    )
+    return hare.instruction
+
+
