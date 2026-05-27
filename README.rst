@@ -1,7 +1,7 @@
 *******************
-Advent of Code Repo
+Advent of Code 2020
 *******************
 
-I wanted a repo to store my Advent of Code puzzle solutions.
+These are my solutions for Advent of Code 2020 puzzles
 
-The original problems can be found at https://adventofcode.com/2020, at least for now.
+The problems can be found at https://adventofcode.com/2020
