@@ -151,6 +151,54 @@ def find_first_invalid(data: XMAS) -> int:
 ################################################################################
 
 
+def get_weakness_range(data: XMAS, target: int) -> tuple[int, int]:
+    """
+    Return first and last indexes of range that sums to 'target'
+
+    Arguments:
+      data  : XMAS data
+      target: First value that was invalid
+    """
+
+    log.info("Searching for continuous range with sum=%s (%s)", target, data)
+
+    bot_index = 0
+
+    while bot_index < len(data) - 1:
+        log.info("Testing range starting with index %s", bot_index)
+
+        # start summing
+        current_total = data[bot_index]
+
+        top_index = bot_index + 1
+
+        while current_total < target:
+            current_total += data[top_index]
+
+            log.debug(
+                "Iteration: current_total=%s; start=%s; end=%s",
+                current_total, bot_index, top_index
+            )
+
+            if current_total == target:
+                log.info(
+                    "Found range that sums to %s! - start=%s; end=%s; range=%s",
+                    target, bot_index, top_index, data[bot_index:top_index+1]
+                )
+                return (bot_index, top_index)
+
+            # Setup for next iteration
+            top_index += 1
+
+        bot_index += 1
+
+    log.warning("Could not find a range that summed to %s (%s)", target, data)
+    return None
+
+
+################################################################################
+
+
 if __name__ == "__main__":
     logging.basicConfig()
     log.setLevel(logging.DEBUG)
@@ -168,5 +216,11 @@ if __name__ == "__main__":
     log.info("Parsed input: %s", data)
 
     first_invalid_index = find_first_invalid(data)
-    print(f"Part 1: {data[first_invalid_index]}")
+    first_invalid = data[first_invalid_index]
+    print(f"Part 1: {first_invalid}")
     print(f"  Found at index {first_invalid_index}")
+
+    start, end = get_weakness_range(data, first_invalid)
+    part2 = data[start] + data[end]
+    print(f"Part 2: {part2}")
+    print(f"  range start={start}; end={end}; range={data[start:end+1]}")
