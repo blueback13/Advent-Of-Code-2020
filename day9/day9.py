@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import bisect
 import logging
 
 
@@ -22,6 +23,8 @@ class XMAS():
       in_file: Path to file containing XMAS data
     """
 
+    _preamble_length = 25
+
     def __init__(self, *args, in_file=None):
         """Initialise XMAS data from file OR from arguments"""
         self._data = []
@@ -41,8 +44,108 @@ class XMAS():
             for line in fh:
                 self._data.append(int(line))
 
-    def __repr__(self):
+    def get_preamble(self) -> list[int]:
+        """
+        Return the XMAX preamble
+
+        This is the first 25 elements of the list
+        """
+        return self._data[:self._preamble_length]
+
+    def get_first_index(self) -> int:
+        """Return first non-preamble index"""
+        return self._preamble_length
+
+    def __getitem__(self, item) -> int:
+        """Return list element at index 'item'"""
+        return self._data[item]
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __repr__(self) -> str:
         return f"XMAS({ ', '.join(str(n) for n in self._data) })"
+
+
+################################################################################
+
+
+def find_first_invalid(data: XMAS) -> int:
+    """
+    Return the index of the first invalid XMAS data value
+
+    A data value is invalid if it does not follow the following rule:
+      Each value must be a sum of any two of the proceeding 25 values
+    (The first 25 values are excluded from this rule - they form the 'preamble')
+
+    Arguments:
+      data: XMAS data
+    """
+    def is_valid(value, last_n) -> bool:
+        """
+        Return True if value follows the rule
+
+        last_n _must_ be sorted!
+        """
+        log.info("Testing validity of value %s (last_n=%s)", value, last_n)
+
+        lower = 0
+        upper = len(last_n) - 1
+
+        while upper > lower:
+            log.debug("Loop iteration: ", )
+            l = last_n[lower]
+            u = last_n[upper]
+            s = l + u
+            log.debug(
+                "is_valid(): iteration: lower=%s (l=%s); upper=%s (u=%s), s=%s; value=%s",
+                lower, l, upper, u, s, value
+            )
+            if s == value:
+                log.info("value %s is valid! (%s + %s)", value, l, u)
+                return True
+            elif s > value:
+                upper -= 1
+            else:
+                lower += 1
+
+        log.info("Value %s is invalid!", value)
+        return False
+
+    min_valid_index = 0
+    current_index = data.get_first_index()
+
+    last_n_sorted = sorted(data.get_preamble())
+
+    log.debug("Pre-loop: current_index=%s; len(data)=%s", current_index, len(data))
+
+    while current_index < len(data):
+        log.debug("Main loop iteration: current_index=%s; len(data)=%s", current_index, len(data))
+
+        current_value = data[current_index]
+        if not is_valid(current_value, last_n_sorted):
+            log.info(
+                "Found first invalid value! (value %s at index %s)",
+                current_value, current_index
+            )
+            return current_index
+
+        # Set up for next iteration
+
+        # Remove oldest value from the list and increase the min valid index
+        last_n_sorted.remove(data[min_valid_index])
+        min_valid_index += 1
+
+        # Add the current value to the list
+        bisect.insort(last_n_sorted, current_value)
+
+        # Increment the current index
+        current_index +=1
+
+    # Note: It's possible to reach this point with well-formed data, but
+    # shouldn't be possible based on the rules of the challenge
+    log.warning("FAILED TO FILE AN INVALID VALUE FOR DATA! (%s)", data)
+    return None
 
 
 ################################################################################
@@ -63,3 +166,7 @@ if __name__ == "__main__":
     data = XMAS(in_file=opts.input_file)
 
     log.info("Parsed input: %s", data)
+
+    first_invalid_index = find_first_invalid(data)
+    print(f"Part 1: {data[first_invalid_index]}")
+    print(f"  Found at index {first_invalid_index}")
