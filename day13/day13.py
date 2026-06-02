@@ -49,6 +49,29 @@ def part1(current_time: int, busses: list[Bus]) -> tuple[int, int]:
 ################################################################################
 
 
+def part2(busses: list[Bus]) -> int:
+    """Solve part 2"""
+    # Each bus becomes a new constraint on the system
+    # Say X is the unknown we want to find.
+    # The Nth Bus with ID I applies constraint:
+    #   I * Y = X + (N-1)
+    # (Where Y is the number of bus iterations needed)
+    # We can restate this as:
+    #  I * Y - X = N-1
+    # This allows us to state the problem as a system of such equations, which
+    # can be solved for the unknowns.
+    #
+    # Also, bus N is skipped if the bus's ID is 'x'
+    #
+    # For example, the matrix form for 4 busses with IDs 10, x, 4, and 7 would be:
+    # [ 10,  0,  0,  0, -1,  0 ]
+    # [  0,  0,  4,  0, -1,  2 ]
+    # [  0,  0,  0,  7, -1,  3 ]
+
+
+################################################################################
+
+
 def read_input(in_file: str) -> tuple[int, list[Bus]]:
     """
     Return current time and list of bus IDs
