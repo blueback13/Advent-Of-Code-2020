@@ -208,6 +208,83 @@ class Ship():
 ################################################################################
 
 
+class AltShip():
+    """An alternative ship. Can navigate in all directions and drive forwards"""
+    def __init__(
+        self,
+        heading: Headings = Headings.east,
+        totals: dict[Headings, int] = {},
+        forward: int = 0,
+    ) -> None:
+        self._heading = heading
+        self._totals = {
+            Headings.north: totals.get(Headings.north, 0),
+            Headings.east : totals.get(Headings.east , 0),
+            Headings.south: totals.get(Headings.south, 0),
+            Headings.west : totals.get(Headings.west , 0),
+        }
+        self._forward = forward
+
+    @property
+    def totals(self) -> dict[Headings, int]:
+        """Total distance ship driven in any direction"""
+
+        return self._totals
+
+    @property
+    def total_forward(self) -> int:
+        """Total units driven forward"""
+        return self._forward
+
+    def driven_heading(self, heading: Headings) -> int:
+        """Total units driven towards 'heading'"""
+        return self._totals[heading]
+
+    @property
+    def heading(self) -> Headings:
+        """Current heading of ship"""
+        return self._heading
+
+    def __repr__(self) -> str:
+        return (
+            f"AltShip(heading={self.heading}, totals={self.totals},"
+            f" forward={self.total_forward})"
+        )
+
+    def move(self, direction: Headings, units: int) -> None:
+        """Move the ship 'units' units in 'Direction'"""
+        log.info(
+            "Moving ship %s units %s - current totals: %s",
+            units, direction.name, self._totals,
+        )
+        self._totals[direction] += units
+        log.debug("New totals: %s", self._totals)
+
+    def forward(self, units: int) -> None:
+        """Move 'units' units in the current heading"""
+        log.info("Moving %s units forward (%s)", units, self._heading.name)
+        self._forward += units
+        self.move(self._heading, units)
+
+    def left(self, degrees: int) -> None:
+        """Adjust heading 'degrees' degrees left"""
+        self._heading -= degrees
+
+    def right(self, degrees: int) -> None:
+        """Adjust heading 'degrees' degrees right"""
+        self._heading += degrees
+
+    def manhattan(self):
+        """Return the ship's Manhattan distance from the origin (0,0)"""
+        return (
+            abs(self._totals[Headings.north] - self._totals[Headings.south])
+            + abs(self._totals[Headings.east] - self._totals[Headings.west])
+        )
+
+
+################################################################################
+
+
 def part1(commands: list[str]) -> int:
     """Return the Manhattan distance after running commands"""
     ship = Ship()
