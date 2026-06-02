@@ -20,37 +20,29 @@ class Headings(enum.Enum):
     Possible headings
     """
     north = 0
-    east = 1
-    south = 2
-    west = 3
+    east = 90
+    south = 180
+    west = 270
 
     def adjust(self, other) -> enum.Enum:
         """Change heading by 'other' increments"""
-        value = self.value
         if not isinstance(other, int):
             raise TypeError("Unsupported operand type", other)
 
-        if other % 90 == 0:
-            # Other is divisible by 90
-            change = other / 90
-        else:
+        if not other % 90 == 0:
             raise ValueError(
                 "Can only adjust headings by increments of 90°!", other,
             )
 
-        value += change
-        ret = value % 4
-        #log.debug(
-        #    "New heading value: %s (raw %s; start %s; change %s)",
-        #    ret, value, self.value, change
-        #)
-        return type(self)(ret)
+        value = (self.value + other) % 360
+        #log.debug("New heading: %s (start %s)", value, self.value)
+        return type(self)(value)
 
     def __add__(self, other) -> enum.Enum:
         return self.adjust(other)
 
     def __sub__(self, other) -> enum.Enum:
-        return self.adjust(other)
+        return self.adjust(-other)
 
     @classmethod
     def from_str(cls, name: str):
