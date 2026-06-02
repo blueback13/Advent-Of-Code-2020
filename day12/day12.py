@@ -78,6 +78,27 @@ class Coordinates():
         """Y coordinate of ship"""
         return (self.x, self.y)
 
+    def rotate(self, new_north: Headings):
+        """
+        Return new coordinates where north is rotated to point to 'new_north'
+        """
+        old = {
+            Headings.north: abs(self.y if self.y > 0 else 0),
+            Headings.east : abs(self.x if self.x > 0 else 0),
+            Headings.south: abs(self.y if self.y < 0 else 0),
+            Headings.west : abs(self.x if self.x < 0 else 0),
+        }
+        new = {
+            new_north      : old[Headings.north],
+            new_north + 90 : old[Headings.east ],
+            new_north + 180: old[Headings.south],
+            new_north + 270: old[Headings.west ],
+        }
+        return type(self)(
+            x=(new[Headings.east ] - new[Headings.west ]),
+            y=(new[Headings.north] - new[Headings.south]),
+        )
+
     def __mul__(self, other):
         """
         Multiply self by other
@@ -134,6 +155,7 @@ class Coordinates():
 
     def __repr__(self) -> str:
         return f"Coordinates(x={self.x}, y={self.y})"
+
 
 ################################################################################
 
@@ -203,6 +225,79 @@ class Ship():
     def manhattan(self):
         """Return the ship's Manhattan distance from the origin (0,0)"""
         return abs(self.x) + abs(self.y)
+
+
+################################################################################
+
+
+class WaypointShip(Ship):
+    """
+    A waypoint ship
+
+    Can move the waypoint NSEW, rotate the waypoint, and drive to the waypoint
+    """
+    # Note: Default position of the waypoint is 10 units East, 1 unit North
+    def __init__(
+            self, x: int = 0, y: int = 0, wpx: int = 10, wpy: int = 1,
+    ) -> None:
+        super(WaypointShip, self).__init__(x=x, y=y)
+        del self._heading
+        self._waypoint = Coordinates(x=wpx, y=wpy)
+
+    @property
+    def heading(self) -> None:
+        return None
+
+    @property
+    def wpx(self) -> int:
+        """Current X position of Waypoint"""
+        return self._waypoint.x
+
+    @property
+    def wpy(self) -> int:
+        """Current Y position of Waypoint"""
+        return self._waypoint.y
+
+    def __repr__(self) -> str:
+        return (
+            f"WaypointShip(x={self.x}, y={self.y}, wpx={self.wpx},"
+            f" wpy={self.wpy})"
+        )
+
+    def move(self, direction: Headings, units: int) -> None:
+        """Move the waypoint 'units' units in 'Direction'"""
+        log.info(
+            "Moving waypoint %s units %s - current waypoint: %s",
+            units, direction.name, self._waypoint,
+        )
+        self._waypoint += self._base_scales[direction] * units
+        log.debug("New waypoint: %s", self._waypoint)
+
+    def forward(self, units: int) -> None:
+        """Drive to waypoint 'units' times"""
+        self._coordinates += self._waypoint * units
+
+    def left(self, degrees: int) -> None:
+        """Rotate the waypoint left 'degrees' degrees around the origin"""
+        log.info(
+            "Rotating waypoint %s degrees left (waypoint=%s)",
+            degrees, self._waypoint,
+        )
+        self._waypoint = self._waypoint.rotate(
+            new_north=Headings.north - degrees
+        )
+        log.info("After rotation: waypoint=%s", self._waypoint)
+
+    def right(self, degrees: int) -> None:
+        """Rotate the waypoint right 'degrees' degrees around the origin"""
+        log.info(
+            "Rotating waypoint %s degrees right (waypoint=%s)",
+            degrees, self._waypoint,
+        )
+        self._waypoint = self._waypoint.rotate(
+            new_north=Headings.north + degrees
+        )
+        log.info("After rotation: waypoint=%s", self._waypoint)
 
 
 ################################################################################
@@ -285,9 +380,9 @@ class AltShip():
 ################################################################################
 
 
-def part1(commands: list[str]) -> int:
+def run_commands(commands: list[str], shiptype: object = Ship) -> int:
     """Return the Manhattan distance after running commands"""
-    ship = Ship()
+    ship = shiptype()
 
     for cmd in commands:
         log.info("Running command: %s (ship=%r) ", cmd, ship)
@@ -340,8 +435,9 @@ if __name__ == "__main__":
     commands = read_commands(opts.input_file)
 
     if opts.part1:
-        part1_result = part1(commands)
+        part1_result = run_commands(commands)
         print(f"Part 1: {part1_result}")
 
     if opts.part2:
-        log.error("Part 2: Not implemented")
+        part2_result = run_commands(commands, WaypointShip)
+        print(f"Part 2: {part2_result}")
