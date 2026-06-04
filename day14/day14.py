@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import collections.abc as abc
 import logging
 
 
@@ -69,6 +70,212 @@ class bitmask():
 ################################################################################
 
 
+class State():
+    """Current state of the program"""
+    def __init__(
+        self,
+        mask: bitmask = None,
+        default: int = 0,
+        registers: dict[int, int] = None,
+    ) -> None:
+        self.mask = bitmask() if mask is None else mask
+        self._default = default
+        self._registers = {} if registers is None else registers
+
+    def __getitem__(self, key: int) -> int:
+        """
+        Return the registry value at 'key'
+
+        If 'key' hasn't been set yet the default value will be returned
+        """
+        if not isinstance(key, int):
+            raise TypeError("'key' should be an int!", type(key))
+
+        return self._registers.get(key, self._default)
+
+    def __setitem__(self, key: int, value: int) -> int:
+        """Set the value at 'key' to value"""
+        if not isinstance(key, int) or not isinstance(key, int):
+            raise TypeError("'key' and 'value' should be ints!", type(key), type(value))
+
+        actual = self._mask.apply(value)
+        log.debug(
+            "Setting register '%s' to '%s' (raw %s; mask %s)",
+            key, actual, value, self._mask,
+        )
+        self._registers[key] = actual
+
+    def __iter__(self) -> list[int]:
+        """Iterate over the values in the registry"""
+        for v in self._registers.values():
+            yield v
+
+    def items(self) -> list[tuple[int, int]]:
+        """Return all key/value pairs from the registry"""
+        for k, v in self._registry.items():
+            yield k, v
+
+    def __repr__(self) -> str:
+        return (
+            f"State(mask={self._mask}, default={self._default},"
+            f" registers={self._registers})"
+        )
+
+    @property
+    def default(self) -> int:
+        """The default value for unset registers"""
+        return self._default
+
+    @property
+    def mask(self) -> bitmask:
+        """The current mask for the state"""
+        return self._mask
+
+    @mask.setter
+    def mask(self, mask: bitmask) -> None:
+        if not isinstance(mask, bitmask):
+            raise TypeError("Input is not a bitmask instance!", mask)
+
+        self._mask = mask
+
+
+################################################################################
+
+
+class Command():
+    """
+    Base command
+
+    Does nothing itself. Is only used to initialise other commands
+    """
+    # List of available subclasses
+    _registry = []
+
+    @staticmethod
+    def _match_command(cmd: str) -> bool:
+        """Return True if this subclass works on cmd"""
+        raise RuntimeError("_match_command() not overridden!", cmd)
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        """
+        Initialise a new command type
+        """
+        super().__init_subclass__(**kwargs)
+        cls._registry.append(cls)
+
+    def __new__(cls, cmd: str, *args, **kwargs):
+        """Return an object of the appropriate subclass for input SeatState"""
+        for newcls in cls._registry:
+            if newcls._match_command(cmd):
+                obj = super().__new__(newcls)
+                obj.__init__(cmd, *args, **kwargs)
+                return obj
+
+        if not newcls:
+            raise RuntimeError("No handler for command!", state)
+
+    def __init__(self, cmd: str, value) -> None:
+        """Set value for command to 'value'"""
+        self._cmd = cmd
+        self._value = value
+
+    def run(self, state: State) -> None:
+        """Run command on state"""
+        raise RuntimeError(
+            "Command not defined for current class!", self.__class__,
+        )
+
+    @property
+    def value(self):
+        return self._value
+
+    @property
+    def cmd(self) -> str:
+        return self._cmd
+
+    def __repr__(self) -> str:
+        return f"Command(cmd={self.cmd!r}, value={self._value!r})"
+
+    def __str__(self) -> str:
+        # Note - we deliberately use the properties here so subclasses can
+        # override them
+        return f"{self.cmd} = {self.value}"
+
+
+################################################################################
+
+
+class MaskCommand(Command):
+    """Update the mask of 'state' to 'value'"""
+    @staticmethod
+    def _match_command(cmd: str) -> bool:
+        """Return True for 'mask' commands"""
+        return cmd.startswith("mask")
+
+    def __init__(self, cmd: str, value: bitmask) -> None:
+        super().__init__(cmd, bitmask(value))
+
+    def run(self, state: State) -> None:
+        state.mask = self._value
+
+
+################################################################################
+
+
+class MemCommand(Command):
+    """Update a register of 'state' to 'value'"""
+    @staticmethod
+    def _match_command(cmd: str) -> bool:
+        """Return True for 'mem' commands"""
+        return cmd.startswith("mem")
+
+    def __init__(self, cmd: str, value: bitmask) -> None:
+        realcmd, address = cmd.split('[')
+        super().__init__(realcmd, int(value))
+        self._address = int(address.strip("[]"))
+
+    def run(self, state: State) -> None:
+        state[self.address] = self.value
+
+    @property
+    def cmd(self) -> str:
+        return f"{super().cmd}[{self.address}]"
+
+    @property
+    def address(self) -> int:
+        return self._address
+
+
+################################################################################
+
+
+def part1(commands: list[Command]) -> int:
+    """Return total after completing commands"""
+    state = State()
+
+    for cmd in commands:
+        cmd.run(state)
+
+    return sum([v for v in state])
+
+
+################################################################################
+
+
+def read_input(in_file: str) -> list[Command]:
+    """Read input from file"""
+    ret = []
+    with open(in_file) as fh:
+        for line in fh:
+            cmd, value = line.split("=")
+            ret.append(Command(cmd.strip(), value.strip()))
+
+    return ret
+
+
+################################################################################
+
+
 if __name__ == "__main__":
     logging.basicConfig()
     log.setLevel(logging.DEBUG)
@@ -83,10 +290,10 @@ if __name__ == "__main__":
 
     opts = parser.parse_args()
 
-    #data = read_input(opts.input_file)
+    commands = read_input(opts.input_file)
 
     if opts.part1:
-        result1 = "TODO"
+        result1 = part1(commands)
         print(f"Part1: {result1}")
 
     if opts.part2:
