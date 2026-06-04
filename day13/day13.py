@@ -50,7 +50,12 @@ def part1(current_time: int, busses: list[Bus]) -> tuple[int, int]:
 
 
 def part2(busses: list[Bus]) -> int:
-    """Solve part 2"""
+    """
+    Solve part 2
+
+    Note: I got a tip from Reddit on how to implement this solution:
+    https://old.reddit.com/r/adventofcode/comments/kc60ri/2020_day_13_can_anyone_give_me_a_hint_for_part_2/gfnnfm3/
+    """
     # Each bus becomes a new constraint on the system
     # Say N is the unknown we want to find.
     # The Ith Bus (0-indexed) with ID B applies constraint:
@@ -62,115 +67,83 @@ def part2(busses: list[Bus]) -> int:
     # can be solved for the unknowns.
     #
     # Also, bus I is skipped if the bus's ID is 'x'
-    #
-    # For example, the matrix form for 4 busses with IDs 10, x, 4, and 7 would be:
-    # [ 10,  0,  0,  0, -1,  0 ]
-    # [  0,  0,  4,  0, -1,  2 ]
-    # [  0,  0,  0,  7, -1,  3 ]
 
     # id   : The bus ID (/ schedule)
     # index: The bus's index in the list
     #        (conveniently, this is also the amount to add to N for this bus)
     Constraint = collections.namedtuple("Constraint", ["id", "index"])
 
+    # Enumerate the input busses to generate the constraints array
     constraints = [
         Constraint(id=b.id, index=i)
         for i, b in enumerate(busses)
         if not b.is_x
     ]
 
-    # N is guaranteed to be less than or equal to the product of all bus IDs
-    # Note: The product of all bus IDs does not meet the constraints itself
-    upper_bound = math.prod([c.id for c in constraints])
-
     # Sort the constraints
     constraints = sorted(constraints, key=lambda c: c.id)
 
-    # Find a lower bound by dividing the upper bound by the smallest constraint
-    # This isn't accurate by any means, but it does cut off quite a bit of
-    # search space
-    lower_bound = upper_bound / constraints[0].id
+    # Initial value for N; e.g. a value of N that is valid for the first
+    # constraint alone.
+    # For a single constraint Y=1, so we can find N for a single constraint:
+    #   N = B - I
+    possible_N = constraints[0].id - constraints[0].index
 
-    # Calculate a step
-    # This is a value BX such that:
-    #   BX * Y = N + I
-    #   (For some value of Y and I)
-    #
-    # In theory we could simply take the constraint with the largest ID and use
-    # it as the step, which works for all example input, but leaves to much
-    # search space for the real input
-    # More interestingly, if we have a value I that we know two Busses B1 and B2
-    # depart at (e.g. B1 leaves B1 minutes after I and B2 leaves B2 minutes
-    # after) then:
-    #   B1 * B2 * Y = N + I
-    # This means we can use B1 * B2 as our step; this is likely to be much
-    # larger step than using an single bus, which dramatically reduces the
-    # search space.
-    step_constraints = [ c for c in constraints ]
-    step_constraints.extend([
-        Constraint(
-            index=i,
-            id=math.prod([b.id for b in constraints if abs(b.index - i) == b.id]),
+    # The first bus B comes every B minutes - use that as the step size
+    step = constraints[0].id
+
+    # repeatedly find N for first X busses until all busses have been included
+    for i in range(2, len(constraints)+1):
+        log.info(
+            "Calculating N for first %s constraints (step=%s; constraints=%s)",
+            i, step, constraints[:i],
         )
-        for i in range(0, len(busses))
-    ])
-    step_constraints = sorted(step_constraints, key=lambda c: c.id)
 
-    log.debug("Calculated extra constraints: %s", step_constraints)
+        while True:
+            # Check if current N meets all constraints
+            # Y = ( N + I ) / B
+            modulos = [
+                ( possible_N + constraints[j].index ) % constraints[j].id
+                for j in range(0, i)
+            ]
+            log.debug(
+                "Modulos for first %s constraints when N=%s: %s",
+                i, possible_N, modulos,
+            )
+            if all([x == 0 for x in modulos]):
+                log.info(
+                    "Found result for first %s constraints: N=%s",
+                    i, possible_N,
+                )
+                # Step for the next iteration is the product of the current step
+                # and the constraint that we added this iteration
+                step *= constraints[i-1].id
+                break
 
-    # Find the constraint with the biggest bus ID and use that as the step
-    # This means that we don't have to try as many values to find the answer
-    step = step_constraints[-1]
-
-    # This is Y in the above equation
-    # Use the lower bound to jump Y up to a value closer to the true value
-    current_multiplier = int(lower_bound / step.id)
-
-    while True:
-        # N = ( B * Y ) - I
-        possible_N = (step.id * current_multiplier) - step.index
+            possible_N += step
 
         log.info(
-            "Trying possible_N=%s (current_multiplier=%s; step=%s;"
-            " upper_bound=%s)",
-            possible_N, current_multiplier, step, upper_bound,
+            "Iteration complete; for first %s constraints N=%s",
+            i, possible_N,
         )
 
-        # Base case - we know for a fact we've gone past the target value
-        if possible_N > upper_bound:
-            raise RuntimeError(
-                "Failed to find N for constraints!",
-                constraints,
-                f"upper_bound={upper_bound}",
-                f"possible_N={possible_N}",
-            )
+    log.info("Calculated final N=%s", possible_N)
 
-        # Check if value meets all constraints
-        # Y = ( N + I ) / B
-        modulos = [
-            ( possible_N + c.index ) % c.id
+    if log.level >= logging.DEBUG:
+        multipliers = [
+            ( possible_N + c.index ) / c.id
             for c in constraints
         ]
+        log.debug(
+            "Constraints for N=%s: %s",
+            possible_N,
+            [
+                f"= ( {c.id} * {m} ) + {c.index}"
+                for m, c in zip(multipliers, constraints)
+            ],
+        )
 
-        log.debug("Modulos for N=%s: %s", possible_N, modulos)
-
-        if all([x == 0 for x in modulos]):
-            if log.level >= logging.INFO:
-                multipliers = [
-                    ( possible_N + c.index ) / c.id
-                    for c in constraints
-                ]
-                log.info(
-                    "Found a valid result: N=%s (constraints=%s)",
-                    possible_N,
-                    [
-                        f"= ( {c.id} * {m} ) + {c.index}"
-                        for m, c in zip(multipliers, constraints)
-                    ]
-                )
-            return possible_N
-
-        current_multiplier += 1
+    return possible_N
 
 
 ################################################################################
