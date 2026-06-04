@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import collections.abc as abc
+import copy
 import logging
 
 
@@ -65,6 +65,39 @@ class bitmask():
         )
 
         return int(binary, base=2)
+
+    def apply_v2(self, other: int) -> list[int]:
+        binary = f"{other:0{len(self._mask)}b}"
+
+        ret = [ [] ]
+
+        for i, m in enumerate(self._mask):
+            if m == "0":
+                append = [ binary[i] ]
+            elif m == "1":
+                append = [ "1" ]
+            else:
+                append = [ "0", "1" ]
+
+            match append:
+                case [ v ]:
+                    for l in ret:
+                        l.append(v)
+                case [ v1, v2 ]:
+                    # Create a copy of every current list
+                    new = copy.deepcopy(ret)
+                    # First append v1 to every list in the original list
+                    for l in ret:
+                        l.append(v1)
+                    # Then append v2 to every list in the copy
+                    for n in new:
+                        n.append(v2)
+                    # Finally, extend the original list with the new list
+                    ret.extend(new)
+
+        return [
+            int("".join(b), base=2) for b in ret
+        ]
 
 
 ################################################################################
@@ -141,6 +174,24 @@ class State():
 
 ################################################################################
 
+
+class State_v2(State):
+    """Version 2 of the program state"""
+    def __setitem__(self, key: int, value: int) -> int:
+        """Set the value at 'key' to value"""
+        if not isinstance(key, int) or not isinstance(key, int):
+            raise TypeError("'key' and 'value' should be ints!", type(key), type(value))
+
+        keys = self._mask.apply_v2(key)
+        log.debug(
+            "Setting %s registers to '%s': key=%s; mask=%s: keys=%s",
+            len(keys), value, key, self._mask, keys,
+        )
+        for k in keys:
+            self._registers[k] = value
+
+
+################################################################################
 
 class Command():
     """
@@ -249,9 +300,9 @@ class MemCommand(Command):
 ################################################################################
 
 
-def part1(commands: list[Command]) -> int:
+def run_commands(commands: list[Command], state_type: object = State) -> int:
     """Return total after completing commands"""
-    state = State()
+    state = state_type()
 
     for cmd in commands:
         cmd.run(state)
@@ -293,10 +344,10 @@ if __name__ == "__main__":
     commands = read_input(opts.input_file)
 
     if opts.part1:
-        result1 = part1(commands)
+        result1 = run_commands(commands)
         print(f"Part1: {result1}")
 
     if opts.part2:
-        result2 = "TODO"
+        result2 = run_commands(commands, state_type=State_v2)
         print(f"Part2: {result2}")
 
