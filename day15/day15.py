@@ -13,7 +13,7 @@ log = logging.getLogger(__name__)
 ################################################################################
 
 
-def part1(initial: list[int], target_turn: int = 2020) -> int:
+def memory_game(initial: list[int], target_turn: int = 2020) -> int:
     """Return the number spoken on turn number 'target_turn'"""
     if not initial or len(initial) < 1:
         raise ValueError("No initial numbers were passed!", initial)
@@ -28,41 +28,48 @@ def part1(initial: list[int], target_turn: int = 2020) -> int:
     #  - The value is a list of all turns the number was spoken on
     turns = {
         # Seed the dict with the initial numbers
-        v: [ t+1 ]
+        v: t+1
         for t, v in enumerate(initial)
     }
 
     log.debug("Seeded turns: %s", turns)
 
-    # Number spoken on the last turn
-    just_spoke = initial[-1]
-    for this_turn in range(len(initial)+1, target_turn+1):
-        just_spoke_turns = turns.get(just_spoke, [])
+    # Note: This may not be correct if the last initial number was spoken
+    # multiple times, but we're going to assume that didn't happen (and indeed
+    # it does not in the test input)
+    will_speak = 0
+
+    log_every = int(target_turn / 100)
+
+    for this_turn in range(len(initial)+1, target_turn):
+        last_time_spoken = turns.get(will_speak, 0)
 
         log.debug(
-            "We just_spoke %s; it has been spoken %s times",
-            just_spoke, len(just_spoke_turns),
+            "We will_speak %s; last spoken on turn %s",
+            will_speak, last_time_spoken,
         )
 
-        if 0 <= len(just_spoke_turns) <= 1:
-            # This number has never been spoken before, or has only been spoken
-            # once before
-            will_speak = 0
+        if this_turn % log_every == 0 and log.level > logging.DEBUG:
+            log.info("Current turn: %s", this_turn)
+
+        if last_time_spoken == 0:
+            # This number has never been spoken before
+            next_turn_speak = 0
         else:
-            most_recent = just_spoke_turns[-1]
-            second_most_recent = just_spoke_turns[-2]
-            will_speak = most_recent - second_most_recent
+            # This number has been spoken before - calculate the next number
+            next_turn_speak = this_turn - last_time_spoken
 
-        log.info("Turn %s; we will speak %s", this_turn, will_speak)
+        log.debug(
+            "Turn %s; we will speak %s this turn and %s next turn",
+            this_turn, will_speak, next_turn_speak
+        )
 
-        will_speak_turns = turns.get(will_speak, [])
-        will_speak_turns.append(this_turn)
-        turns[will_speak] = will_speak_turns
-        just_spoke = will_speak
+        turns[will_speak] = this_turn
+        will_speak = next_turn_speak
 
-    log.info("Number spoken on turn %s: %s", target_turn, just_spoke)
+    log.info("Number spoken on turn %s: %s", target_turn, will_speak)
 
-    return just_spoke
+    return will_speak
 
 
 ################################################################################
@@ -98,11 +105,16 @@ if __name__ == "__main__":
     initial = read_input(opts.input_file)
 
     if opts.part1:
-        result1 = part1(initial)
+        result1 = memory_game(initial)
         print(f"Part1: {result1}")
 
     if opts.part2:
-        result2 = "TODO"
+        log.info("Disabling debug prints for part 2!")
+        # We need to minimise printing, since it adds too much time to the
+        # process
+        log.setLevel(logging.INFO)
+
+        result2 = memory_game(initial, target_turn=30000000)
         print(f"Part2: {result2}")
 
 
