@@ -93,7 +93,7 @@ if __name__ == "__main__":
     log.setLevel(logging.DEBUG)
 
     parser = argparse.ArgumentParser(
-        description="Bus timetable reader"
+        description="Memory game simulator"
     )
 
     parser.add_argument("input_file")
