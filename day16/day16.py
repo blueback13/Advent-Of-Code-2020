@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import math
 
 
 ################################################################################
@@ -113,17 +114,113 @@ class Ticket():
 ################################################################################
 
 
-def part1(rules: list[Rule], nearby_tickets: list[Ticket]) -> int:
-    """Return sum of values from nearby tickets that do not match any rule"""
-    invalid = []
+def part1(
+    rules: list[Rule], nearby_tickets: list[Ticket],
+) -> tuple[int, list[Ticket]]:
+    """
+    Return sum of nearby tickets values that do not match any rule and list of
+    valid tickets
+    """
+    invalid_values = []
+    valid = []
 
     for ticket in nearby_tickets:
         new_invalid = ticket.get_invalid(rules)
         log.info("invalid values from ticket (%s): %s", ticket, new_invalid)
 
-        invalid.extend(new_invalid)
+        if len(new_invalid) != 0:
+            invalid_values.extend(new_invalid)
+        else:
+            valid.append(ticket)
 
-    return sum(invalid)
+    return (sum(invalid_values), valid)
+
+
+################################################################################
+
+
+def part2(
+    rules: list[Rule], your_ticket: Ticket, nearby_tickets: list[Ticket],
+) -> None:
+    """
+    Return sum of departure fields on your ticket
+
+    Note: nearby tickets must be valid (as per part1())
+    """
+    ordered_rules = []
+    for i in range(0, len(rules)):
+        valid_rules = rules
+        for ticket in nearby_tickets:
+            valid_rules = [r for r in valid_rules if ticket[i] in r]
+            log.debug(
+                "Valid rules for field %s after applying %r: %s",
+                i, ticket, valid_rules,
+            )
+
+        if len(valid_rules) == 0:
+            raise RuntimeError(
+                f"Unable to determine rule for field {i}!", rules,
+            )
+        # elif len(valid_rules) > 1:
+        #     raise RuntimeError(
+        #         f"To many possible rules for field {i}!", valid_rules,
+        #     )
+
+        ordered_rules.append(valid_rules)
+
+
+    log.debug("Rules ordered by positions they could take: %s", ordered_rules)
+
+    known_rules = []
+    while len(known_rules) < len(rules):
+        # Work out which slots we can identify the rule for.
+        # Each time we identify a rule's field, we can remove it from the
+        # possibilities for other fields; repeating this should leave us with
+        # just one possibility for every field
+        for i in range(0, len(ordered_rules)):
+            possibilities = ordered_rules[i]
+            if not isinstance(possibilities, list):
+                # Skip this field - it's already been identified
+                continue
+            elif len(possibilities) > 1:
+                # Skip this field - we can't identify it yet
+                continue
+            if len(possibilities) < 0:
+                raise RuntimeError(
+                    f"No remaining possible rules for field {i}!",
+                    known_rules, ordered_rules,
+                )
+
+            log.info(
+                "Identified only possible rule for field %s: %s",
+                i, possibilities
+            )
+            ordered_rules[i] = possibilities[0]
+            known_rules.append(ordered_rules[i])
+
+        for i in range(0, len(ordered_rules)):
+            possibilities = ordered_rules[i]
+            if not isinstance(possibilities, list):
+                # Skip this field - it's already been identified
+                continue
+
+            ordered_rules[i] = [
+                r for r in possibilities if r not in known_rules
+            ]
+
+    log.debug("Rules in final order: %s", ordered_rules)
+    log.debug("Your ticket: %s", your_ticket)
+
+    ticket_values = [
+        your_ticket[i] for i in range(0, len(ordered_rules))
+        if ordered_rules[i].name.startswith("departure")
+    ]
+
+    log.debug(
+        "Values from your ticket in 'departure' fields: %s", ticket_values,
+    )
+
+    return math.prod(ticket_values)
 
 
 ################################################################################
@@ -205,12 +302,12 @@ if __name__ == "__main__":
 
     print_input(rules, your_ticket, nearby_tickets)
 
+    # We need the valid tickets for part 2, so we always do this calculation
+    result1, valid = part1(rules, nearby_tickets)
     if opts.part1:
-        result1 = part1(rules, nearby_tickets)
         print(f"Part1: {result1}")
+        print(f"  Total valid tickets: {len(valid)}")
 
     if opts.part2:
-        result2 = "TODO"
+        result2 = part2(rules, your_ticket, valid)
         print(f"Part2: {result2}")
-
-
