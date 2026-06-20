@@ -75,7 +75,9 @@ class Grid():
                 for value in line.strip():
                     # Note: Input file always has z=0
                     point = Point(x, y, 0)
-                    newgrid[point] = State(value)
+                    value = State(value)
+                    log.debug("Setting point %s to %s", point, value)
+                    newgrid[point] = value
                     x += 1
                 y += 1
 
@@ -96,6 +98,34 @@ class Grid():
 
     def __repr__(self) -> str:
         return f"Grid(active={self._active})"
+
+    def __str__(self) -> str:
+        # Calculate the min and max x, y, and z values we need to consider
+        minx = maxx = miny = maxy = minz = maxz = 0
+        for point in self:
+            minx = point.x if point.x < minx else minx
+            maxx = point.x if point.x > maxx else maxx
+            miny = point.y if point.y < miny else miny
+            maxy = point.y if point.y > maxy else maxy
+            minz = point.z if point.z < minz else minz
+            maxz = point.z if point.z > maxz else maxz
+
+        # Now that we have the ranges we can generate the grid
+        layers = []
+        for z in range(minz, maxz+1):
+            rows = []
+            for y in range(miny, maxy+1):
+                rows.append(
+                    "".join([
+                        self[Point(x, y, z)].value for x in range(minx, maxx+1)
+                    ])
+                )
+            layers.append("\n".join(rows))
+
+        return "\n\n".join([
+            f"z={z}\n{layer}"
+            for z, layer in zip(range(minz, maxz+1), layers)
+        ])
 
     def is_active(self, point: Point) -> bool:
         """Return True if point is active"""
@@ -146,13 +176,37 @@ class Grid():
                 current_neighbouring.add(active)
                 active_adjacent[neighbour] = current_neighbouring
 
+            # Make sure the current point is also in the dict if it hasn't
+            # already been added.
+            # This insures an active point with no active neighbours will
+            # actually be set inactive
+            active_adjacent[active] = active_adjacent.get(active, set())
+
         for point, active_neighbours in active_adjacent.items():
             # Note: any given point will not have its state changed until we
             # check it here, so we can rely on the is_active() method here.
             if self.is_active(point) and not (2 <= len(active_neighbours) <= 3):
+                log.debug(
+                    "Point %s active, setting inactive: (count %s;"
+                    " adjacent: %s)",
+                    point, len(active_neighbours), active_neighbours,
+                )
                 self.set_inactive(point)
             elif not self.is_active(point) and len(active_neighbours) == 3:
+                log.debug(
+                    "Point %s inactive, setting active: (count: %s;"
+                    " adjacent: %s)",
+                    point, len(active_neighbours), active_neighbours
+                )
                 self.set_active(point)
+            else:
+                log.debug(
+                    "Point %s is %s, not changing: (count: %s; adjacent: %s)",
+                    point,
+                    "active" if self.is_active(point) else "inactive",
+                    len(active_neighbours),
+                    active_neighbours
+                )
 
 
 ################################################################################
@@ -177,7 +231,7 @@ if __name__ == "__main__":
     if opts.part1:
         for i in range(0, 6):
             grid.part1_run_cycle()
-            log.info("Iteration %s; %s cubes active", i, len(grid))
+            log.info("Iteration %s; %s cubes active:\n%s", i, len(grid), grid)
         result1 = len(grid)
         print(f"Part1: {result1}")
 
