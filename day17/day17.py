@@ -104,7 +104,7 @@ class Grid():
     @classmethod
     def from_file(cls, in_file: str, dimensions: int = 3) -> typing.Self:
         """Read an input file and return a Grid"""
-        newgrid = cls()
+        newgrid = cls(dimensions=dimensions)
         # Default the value for every other dimension to 0
         # Remember the input file always has z=0 (and w=0 for part 2)
         other_defaults = [0] * (dimensions-2)
@@ -246,7 +246,7 @@ class Grid():
         else:
             self.set_inactive(point)
 
-    def part1_run_cycle(self) -> None:
+    def run_cycle(self) -> None:
         """
         Update self as per the rules from part 1
 
@@ -318,15 +318,20 @@ if __name__ == "__main__":
 
     opts = parser.parse_args()
 
-    grid = Grid.from_file(opts.input_file)
-
     if opts.part1:
+        grid1 = Grid.from_file(opts.input_file)
+
         for i in range(0, 6):
-            grid.part1_run_cycle()
-            log.info("Iteration %s; %s cubes active:\n%s", i, len(grid), grid)
-        result1 = len(grid)
+            grid1.run_cycle()
+            log.info("Iteration %s; %s cubes active:\n%s", i, len(grid1), grid1)
+        result1 = len(grid1)
         print(f"Part1: {result1}")
 
     if opts.part2:
-        result2 = "TODO"
+        grid2 = Grid.from_file(opts.input_file, dimensions=4)
+
+        for i in range(0, 6):
+            grid2.run_cycle()
+            log.info("Iteration %s; %s cubes active:\n%s", i, len(grid2), grid2)
+        result2 = len(grid2)
         print(f"Part2: {result2}")
