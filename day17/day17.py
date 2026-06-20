@@ -2,7 +2,9 @@
 
 import argparse
 import collections
+import copy
 import enum
+import functools
 import logging
 import typing
 
@@ -27,6 +29,32 @@ relative_surrounding = {
 ################################################################################
 
 
+@functools.lru_cache
+def generate_relative_surrounding(dimensions: int = 3) -> list[tuple]:
+    """Return a list of the relative positions of all neighbouring points"""
+    ret = [ [] ]
+    for d in range(0, dimensions):
+        new_ret = []
+        for i in range(-1, 2):
+            # Create a new copy of every existing list for each relative offset
+            new = copy.deepcopy(ret)
+            for n in new:
+                n.append(i)
+            new_ret.extend(new)
+
+        ret = new_ret
+
+    ret = {tuple(v) for v in ret}
+
+    ret.remove(tuple([0] * dimensions))
+
+    return ret
+
+
+################################################################################
+
+
+
 class State(enum.Enum):
     """Represents the state of a point in the 3D grid"""
     active = "#"
@@ -36,14 +64,12 @@ class State(enum.Enum):
 ################################################################################
 
 
-def get_surrounding_points(point: Point) -> set[Point]:
+def get_surrounding_points(point: tuple) -> set[tuple]:
     """Return all points that surround a given point"""
-    for x, y, z in relative_surrounding:
-        yield Point(
-            x = point.x + x,
-            y = point.y + y,
-            z = point.z + z,
-        )
+    for offset in generate_relative_surrounding(len(point)):
+        yield tuple([
+            x + y for x, y in zip(point, offset)
+        ])
 
 
 ################################################################################
@@ -53,7 +79,7 @@ class Grid():
     """
     Represent a 3D grid of points, where points can be either active or inactive
     """
-    def __init__(self, active: set[Point] = None) -> None:
+    def __init__(self, dimensions: int = 3, active: set[tuple] = None) -> None:
         if isinstance(active, (set, list, tuple)):
             self._active = set(active)
         elif not active:
@@ -64,17 +90,31 @@ class Grid():
                 f" {type(active)}", active,
             )
 
+        self._dimensions = dimensions
+
+        if not all([self.point_valid(p) for p in self._active]):
+            raise RuntimeError(
+                "Some input points are not sized correctly for an"
+                f" {self.dimensions} dimensional grid",
+                dimensions, active,
+            )
+
+        self._active = {tuple(p) for p in self._active}
+
     @classmethod
-    def from_file(cls, in_file: str) -> typing.Self:
+    def from_file(cls, in_file: str, dimensions: int = 3) -> typing.Self:
         """Read an input file and return a Grid"""
         newgrid = cls()
+        # Default the value for every other dimension to 0
+        # Remember the input file always has z=0 (and w=0 for part 2)
+        other_defaults = [0] * (dimensions-2)
+
         with open(in_file) as fh:
             y = 0
             for line in fh:
                 x = 0
                 for value in line.strip():
-                    # Note: Input file always has z=0
-                    point = Point(x, y, 0)
+                    point = (x, y, *other_defaults)
                     value = State(value)
                     log.debug("Setting point %s to %s", point, value)
                     newgrid[point] = value
@@ -83,11 +123,35 @@ class Grid():
 
         return newgrid
 
-    def __getitem__(self, point: Point) -> State:
+    @property
+    def dimensions(self) -> int:
+        """Return the number of dimensions on this grid"""
+        return self._dimensions
+
+    def point_valid(self, point: tuple) -> bool:
+        """
+        Return True if point is valid for this grid
+
+        In other words, the point has the right number of dimensions for this
+        grid
+        """
+        return len(point) == self.dimensions
+
+    def raise_point_invalid(self, point: tuple) -> None:
+        """Raise a value error if point is sized incorrectly"""
+        if not self.point_valid(point):
+            raise ValueError(
+                f"Input point is not sized correctly for an {self.dimensions}"
+                " dimensional grid!",
+                point,
+            )
+
+    def __getitem__(self, point: tuple) -> State:
         """Return the current state of a point"""
+        self.raise_point_invalid(point)
         return State.active if point in self._active else State.inactive
 
-    def __iter__(self) -> set[Point]:
+    def __iter__(self) -> set[tuple]:
         """Iterate over all active points"""
         for point in self._active:
             yield point
@@ -100,50 +164,78 @@ class Grid():
         return f"Grid(active={self._active})"
 
     def __str__(self) -> str:
-        # Calculate the min and max x, y, and z values we need to consider
-        minx = maxx = miny = maxy = minz = maxz = 0
-        for point in self:
-            minx = point.x if point.x < minx else minx
-            maxx = point.x if point.x > maxx else maxx
-            miny = point.y if point.y < miny else miny
-            maxy = point.y if point.y > maxy else maxy
-            minz = point.z if point.z < minz else minz
-            maxz = point.z if point.z > maxz else maxz
+        # Names of dimensions past x and y
+        dimension_names = ["z", "w"]
 
-        # Now that we have the ranges we can generate the grid
+        # Calculate the min and max values we need to consider in all dimensions
+        minimum = [0] * self.dimensions
+        maximum = [0] * self.dimensions
+        for point in self:
+            for d in range(0, self.dimensions):
+                minimum[d] = point[d] if point[d] < minimum[d] else minimum[d]
+                maximum[d] = point[d] if point[d] > maximum[d] else maximum[d]
+
+        layer_positions = [ [] ]
+        for d in range(2, self.dimensions):
+            new = []
+            for v in range(minimum[d], maximum[d]+1):
+                new_positions = copy.deepcopy(layer_positions)
+                for n in new_positions:
+                    n.append(v)
+                new.extend(new_positions)
+
+            layer_positions = new
+
+        del new, new_positions
+
+        # Now that we have the ranges and the z(/w) coordinates we need we can
+        # generate the grid
         layers = []
-        for z in range(minz, maxz+1):
+        for positions in layer_positions:
             rows = []
-            for y in range(miny, maxy+1):
+            for y in range(minimum[1], maximum[1]+1):
                 rows.append(
                     "".join([
-                        self[Point(x, y, z)].value for x in range(minx, maxx+1)
+                        self[tuple([x, y, *positions])].value
+                        for x in range(minimum[0], maximum[0]+1)
                     ])
                 )
-            layers.append("\n".join(rows))
+            layer_name = ",".join([
+                (
+                    dimension_names[i]
+                    if i < len(dimension_names)
+                    else f"dimension({i+2})"
+                ) + f"={positions[i]}"
+                for i in range(0, len(positions))
+            ])
+            layers.append(layer_name +"\n" + "\n".join(rows))
 
         return "\n\n".join([
-            f"z={z}\n{layer}"
-            for z, layer in zip(range(minz, maxz+1), layers)
+            f"{layer}"
+            for layer in layers
         ])
 
-    def is_active(self, point: Point) -> bool:
+    def is_active(self, point: tuple) -> bool:
         """Return True if point is active"""
+        self.raise_point_invalid(point)
         return self[point] == State.active
 
-    def set_active(self, point: Point) -> None:
+    def set_active(self, point: tuple) -> None:
         """Set 'point' to be active"""
+        self.raise_point_invalid(point)
         self._active.add(point)
 
-    def set_inactive(self, point: Point) -> None:
+    def set_inactive(self, point: tuple) -> None:
         """Set 'point' to be inactive"""
+        self.raise_point_invalid(point)
         try:
             self._active.remove(point)
         except KeyError:
             log.debug("Point %s was already inactive", point)
 
-    def __setitem__(self, point: Point, value: State):
+    def __setitem__(self, point: tuple, value: State):
         """Set 'point' to be active or inactive"""
+        self.raise_point_invalid(point)
         if not isinstance(value, State):
             raise TypeError(
                 f"'value' must be a 'State' object (currently {type(value)})",
