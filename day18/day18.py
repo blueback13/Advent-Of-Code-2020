@@ -23,10 +23,10 @@ class Operator():
     # List of available subclass instances
     _registry = []
 
-    @staticmethod
-    def _match_op(operator: str) -> bool:
-        """Return True if this subclass works on cmd"""
-        raise RuntimeError("_match_command() not overridden!", cmd)
+    @classmethod
+    def _match_op(cls, operator: str) -> bool:
+        """Return True if this subclass works on 'operator'"""
+        return operator == cls._operator
 
     def __init_subclass__(cls, **kwargs) -> None:
         """
@@ -34,7 +34,7 @@ class Operator():
         """
         super().__init_subclass__(**kwargs)
         # Note: Operations have no data, so we can treat them as singletons
-        cls._registry.append(cls())
+        cls._registry.append(super().__new__(cls))
 
     def __new__(cls, operator: str, *args, **kwargs):
         """Return an object of the appropriate subclass for input SeatState"""
@@ -49,7 +49,7 @@ class Operator():
         return f"{self.__class__.__name__}()"
 
     def __str__(self) -> str:
-        return "??"
+        return self._operator
 
     def __call__(self, x: int, y: int) -> int:
         """Return the result of applying this operation to x and y"""
@@ -59,48 +59,87 @@ class Operator():
 ################################################################################
 
 
+class Addition(Operator):
+    _operator = "+"
+
+    def __call__(self, x: int, y: int) -> int:
+        return x + y
+
+
+################################################################################
+
+
+class Multiplication(Operator):
+    _operator = "*"
+
+    def __call__(self, x: int, y: int) -> int:
+        return x * y
+
+
+################################################################################
+
+
 class Problem():
     """A math homework problem"""
     def __init__(
-        self, problems: list, operators: list[Operator] = None,
+        self, problems: list["Problem"] | int, operators: list[Operator] = None,
     ) -> None:
-        self._probs = problems
+        if isinstance(problems, int):
+            self._value = True
+            self._probs = [problems]
+        else:
+            self._value = False
+            self._probs = problems
+
         self._ops = operators if operators is not None else []
 
         if not (
-            isinstance(self._probs, [list, tuple])
-            and all([isinstance(x, type(self)) for x in self._probs])
+            isinstance(self._probs, (list, tuple))
+            and all([isinstance(x, (type(self), int)) for x in self._probs])
         ):
             raise TypeError(
                 "'problems' must be a list of Problems",
                 self._probs
             )
         elif not (
-            isinstance(self._ops, [list, tuple])
+            isinstance(self._ops, (list, tuple))
             and all([isinstance(x, Operator) for x in self._ops])
         ):
             raise TypeError(
                 "'operators' must be a list of Operators", self._ops
             )
-        elif not (len(numbers) == len(operators) + 1):
+        elif not (len(self._probs) == len(self._ops) + 1):
             raise RuntimeError(
-                "Number of operators must be 1 less than number of numbers"
-                self._numbers, self._ops,
+                "Number of operators must be 1 less than number of numbers",
+                self._probs, self._ops,
             )
 
     def evaluate(self) -> int:
         """Return result of evaluating the equation defined by this object"""
-        pass
+        if self._value:
+            return self._probs[0]
+
+        total = self._probs[0].evaluate()
+
+        for operation, problem in zip(self._ops, self._probs[1:]):
+            total = operation(total, problem.evaluate())
+
+        return total
 
     def __len__(self) -> int:
         """Return number of subproblems in this problem"""
         return len(self._probs)
 
     def __str__(self) -> str:
-        return str(self._probs[0]) + " " + " ".join([
-            str(o) + " " + (f"({p})" if len(p) > 1 else str(p))
-            for o, p in zip(self._ops, self._probs[1:])
-        ])
+        ret = str(self._probs[0])
+
+        if len(self._probs) > 1:
+            ret += " " + " ".join([
+                str(o) + " " + (f"({p})" if len(p) > 1 else str(p))
+                for o, p in zip(self._ops, self._probs[1:])
+            ])
+
+        return ret
 
 
 ################################################################################
