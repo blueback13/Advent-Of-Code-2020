@@ -79,6 +79,44 @@ class Multiplication(Operator):
 ################################################################################
 
 
+def tokenise(string: str) -> list[str]:
+    """
+    Split a string into tokens
+
+    The expected token types are:
+      numbers - strings with all digits
+      operators - either '+' or '*'
+      brackets - either '(' or ')'
+    """
+
+    digits = []
+
+    for char in string:
+        if char.isdigit():
+            # We're still accumulating the last number
+            digits.append(char)
+            continue
+
+        if len(digits) > 0:
+            # We've reached the end of the number being accumulated
+            yield "".join(digits)
+            digits = []
+
+        # Handle other token types
+        if char.isspace():
+            continue
+        else:
+            yield char
+
+    # We've reached the end of the string
+    # Make sure any number that was being accumulated is actually returned
+    if len(digits) > 0:
+        yield "".join(digits)
+
+
+################################################################################
+
+
 class Problem():
     """A math homework problem"""
     def __init__(
@@ -96,7 +134,7 @@ class Problem():
         if not (
             isinstance(self._probs, (list, tuple))
             and all([isinstance(x, (type(self), int)) for x in self._probs])
-        ):
+         ):
             raise TypeError(
                 "'problems' must be a list of Problems",
                 self._probs
@@ -114,6 +152,56 @@ class Problem():
                 self._probs, self._ops,
             )
 
+    @classmethod
+    def from_string(cls, string: str) -> 'Problem':
+        """Return a Problem object matching the equation defined by 'string'"""
+        subproblems = []
+        operators = []
+        bracket_storage = []
+
+        for token in tokenise(string):
+            if token.isdigit():
+                subproblems.append(cls(int(token)))
+                continue
+            elif token in ["*", "+"]:
+                operators.append(Operator(token))
+                continue
+            elif token == "(":
+                # Start a new subproblem
+                bracket_storage.append( (subproblems, operators) )
+                subproblems = []
+                operators = []
+                # log.info(
+                #     "Started new subproblem - currently %s brackets deep",
+                #     len(bracket_storage),
+                # )
+                # log.debug("Saved subproblems: %s", bracket_storage)
+            elif token == ")":
+                # End a subproblem
+                if len(bracket_storage) < 1:
+                    raise RuntimeError(
+                        "Attempted to close bracket without opening a bracket",
+                        subproblems, operators, bracket_storage,
+                    )
+
+                subproblem = cls(subproblems, operators)
+                subproblems, operators = bracket_storage.pop()
+                subproblems.append(subproblem)
+                # log.info(
+                #     "Ended subproblem - currently %s brackets deep",
+                #     len(bracket_storage),
+                # )
+                # log.debug("Saved subproblems: %s", bracket_storage)
+
+        # Reached the end of the problem
+        if len(bracket_storage) > 0:
+            raise RuntimeError(
+                "Reached end of problem without closing all brackets!",
+                subproblems, operators, bracket_storage
+            )
+
+        return cls(subproblems, operators)
+
     def evaluate(self) -> int:
         """Return result of evaluating the equation defined by this object"""
         if self._value:
@@ -128,10 +216,16 @@ class Problem():
 
     def __len__(self) -> int:
         """Return number of subproblems in this problem"""
-        return len(self._probs)
+        if self._value:
+            return 1
+
+        return sum([len(p) for p in self._probs])
 
     def __str__(self) -> str:
-        ret = str(self._probs[0])
+        if not self._value and len(self._probs[0]) > 1:
+            ret = f"({self._probs[0]})"
+        else:
+            ret = str(self._probs[0])
 
         if len(self._probs) > 1:
             ret += " " + " ".join([
@@ -145,14 +239,14 @@ class Problem():
 ################################################################################
 
 
-def do_homework(problem: str) -> int:
-    """
-    Process a line of homework and return the result
+def read_input(in_file: str) -> list[Problem]:
+    """Read an input file and return the files from within"""
+    ret = []
+    with open(in_file) as fh:
+        for line in fh:
+            ret.append(Problem.from_string(line.strip()))
 
-    Remember, operator precedence doesn't exist, so calculations are performed
-    blindly right-left (except when brackets change the order
-    """
-    pass
+    return ret
 
 
 ################################################################################
@@ -172,8 +266,15 @@ if __name__ == "__main__":
 
     opts = parser.parse_args()
 
+    problems = read_input(opts.input_file)
+
     if opts.part1:
-        result1 = "TODO"
+        result1 = 0
+        for problem in problems:
+            _result = problem.evaluate()
+            log.info("Problem: %s = %s", problem, _result)
+            result1 += _result
+
         print(f"Part1: {result1}")
 
     if opts.part2:
