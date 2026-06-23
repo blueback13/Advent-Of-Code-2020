@@ -214,6 +214,64 @@ class Problem():
 
         return total
 
+    def evaluate_v2(self) -> int:
+        """
+        Return result of evaluating the equation defined by this object
+
+        Implements operator precedence as per part 2 of the problem (e.g. '+'
+        comes before '*')
+        """
+        if self._value:
+            return self._probs[0]
+
+        # First get the integer values of all subproblems in this problem
+        subtotals = [p.evaluate_v2() for p in self._probs]
+        operations = [ o for o in self._ops ]
+
+        addition = Operator("+")
+
+        while True:
+            try:
+                i = operations.index(addition)
+            except ValueError:
+                # No more additions in the list
+                break
+
+            # Run the operation on its target values
+            op = operations[i]
+            # log.debug(
+            #     "Applying operation at %s (%s); subtotals: %s",
+            #     i, op, subtotals
+            # )
+
+            # Note: We're replacing the first value operated on with the total -
+            # the second value operated on will be removed from this list
+            subtotals[i] = op(subtotals[i], subtotals[i+1])
+
+            # Remove the operation from the list along with the (now used)
+            # second value from the subtotals
+            del operations[i]
+            del subtotals[i+1]
+
+            # log.debug("Operation complete: %s", subtotals)
+
+
+        # log.debug(
+        #     "Applied all additions (subtotals=%s; operations=%s)",
+        #     subtotals, operations,
+        # )
+
+        # Apply remaining operations
+        total = subtotals[0]
+        for operation, subtotal in zip(operations, subtotals[1:]):
+            # log.debug(
+            #     "Applying operation %s to %s and %s",
+            #     operation, total, subtotal,
+            # )
+            total = operation(total, subtotal)
+
+        return total
+
     def __len__(self) -> int:
         """Return number of subproblems in this problem"""
         if self._value:
@@ -272,11 +330,15 @@ if __name__ == "__main__":
         result1 = 0
         for problem in problems:
             _result = problem.evaluate()
-            log.info("Problem: %s = %s", problem, _result)
+            log.info("Part 1: Problem: %s = %s", problem, _result)
             result1 += _result
 
         print(f"Part1: {result1}")
 
     if opts.part2:
-        result2 = "TODO"
+        result2 = 0
+        for problem in problems:
+            _result = problem.evaluate_v2()
+            log.info("Part 2: Problem: %s = %s", problem, _result)
+            result2 += _result
         print(f"Part2: {result2}")
