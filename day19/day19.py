@@ -134,7 +134,11 @@ def compile_regex(definitions: dict[int, Pattern], index: int) -> re.Pattern:
         # All needed indexes are already resolved
         # We can now generate the regex string for the current pattern
         sub_patterns = [
-            "|".join([f"({definitions[i].pattern})" for i in TUPLE])
+            "".join([
+                f"({definitions[i].pattern})" if "|" in definitions[i].pattern
+                else definitions[i].pattern
+                for i in TUPLE
+            ])
             for TUPLE in resolving.references
         ]
 
