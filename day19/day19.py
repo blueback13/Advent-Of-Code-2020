@@ -149,6 +149,7 @@ def compile_regex(definitions: dict[int, Pattern], index: int) -> re.Pattern:
         resolving.pattern = pattern
 
     # Remember to match the start and end of a string in the output pattern
+    #print(definitions[index].pattern)
     return re.compile(f"^{definitions[index].pattern}$")
 
 
@@ -190,8 +191,8 @@ if __name__ == "__main__":
 
     patterns, strings = read_input(opts.input_file)
 
-    for p in patterns:
-        print(str(p))
+    for p in patterns.items():
+        print(repr(p))
     print("\n")
     for s in strings:
         print(s)
@@ -199,7 +200,10 @@ if __name__ == "__main__":
     if opts.part1:
         regex = compile_regex(patterns, 0)
         print(f"  regex={regex}")
-        result1 = "TODO"
+        result1 = len([
+            s for s in strings
+            if regex.match(s)
+        ])
         print(f"Part1: {result1}")
 
     if opts.part2:
